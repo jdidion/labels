@@ -1,84 +1,97 @@
 #!/usr/bin/env python
 # Given a csv file, create labels of different sizes that include text and a QR code.
-# Depends on pylabels.
+# Dependencies:
+# pip install reportlab
+# pip install pylabels
 
 import argparse
 import csv
-import labels
+from decimal import Decimal
+import json
+import math
 import zlib as z
+
+import labels
+from reportlab.lib import units
 from reportlab.graphics import shapes
 from reportlab.graphics.barcode import qr
 
-# Pre-defined specifications based on product numbers from onlinelabels.com.
-# These all use internal padding of 1 mm.
-SPECS=dict(
-    OL875=labels.Specification(215.9, 279.4, 3, 10, 66.68, 25.4, 
-        top_margin=12.7, bottom_margin=12.7, left_margin=5.58, right_margin=5.58,
-        column_gap=3.56, row_gap=0, corner_radius=3.18,
-        top_padding=1, bottom_padding=1, left_padding=1, right_padding=1)
-)
+class Column(object):
+    def __init__(self, col):
+        self.idxs = map(int, col.split("+"))
+    
+    def get(self, row, delim=", "):
+        return delim.join(list(row[i] for i in self.idxs))
 
 class Label(object):
-    def __init__(self, text_lines=None, text_formats=None, qr_data=None, qr_format=None):
+    def __init__(self, text_lines=None, text_format=None, qr_data=None, qr_format=None):
         self.text_lines = []
         if text_lines is not None:
-            if isinstance(text_lines, str):
-                add_text(test_lines, text_formats)
-            else:
-                for i in xrange(len(text_lines)):
-                    fmt = None
-                    if text_formats is not None:
-                        if isinstance(text_formats, dict):
-                            fmt = text_formats
+            for i in xrange(len(text_lines)):
+                fmt = {}
+                if text_format is not None:
+                    for k,v in text_format.iteritems():
+                        if isinstance(v, tuple) or isinstance(v, list):
+                            fmt[k] = v[i]
                         else:
-                            fmt = text_formats[i]
-                    add_text(text_lines[i], fmt)
+                            fmt[k] = v
+                self.add_text(text_lines[i], fmt)
         
-        self.qr_data = qr_data
-        self.qr_format = qr_format
+        self.set_qr(qr_data, qr_format)
     
     def add_text(self, text, fmt):
         self.text_lines.append((text, fmt))
     
-    def draw(self, label, width, height, qr_pos):
-        objs = []
+    def set_qr(self, qr_data, qr_format):
+        self.qr_data = qr_data
+        self.qr_format = qr_format
+    
+    def draw(self, label, width, height):
+        text_x = 0
         
-        for text, fmt in self.text_lines:
-            
-            shapes.String(2, 2, str(obj), fontName="Helvetica", fontSize=40)
-        
+        qr = None
         if self.qr_data is not None:
-            fmt = self.qr_format or {}
-            qr_code = make_qr(self.qr_data, **fmt)
-            if qr_pos == "left":
-                objs = [qr_code] + objs
-            else:
-                objs.append(qr_code)
+            qr = make_qr(self.qr_data, **self.qr_format)
+            label.add(qr)
+            text_x = qr.barWidth + 1
         
-        for o in objs:
-            label.add(o)
+        text_y = height
+        for text, fmt in self.text_lines:
+            font_size = fmt.get("fontSize", shapes.STATE_DEFAULTS["fontSize"])
+            text_y -= (font_size + 1)
+            label.add(shapes.String(text_x, text_y, text, **fmt))
 
-def make_labels_from_table(reader, text_columns, qr_column, outfile, text_format=None, 
-        qr_format=None, specs=None, qr_pos="left", **kwargs):
+def make_labels_from_table(reader, text_columns, qr_column, outfile, config):
+    specs = config["spec"]
+    height = float(specs._label_height - (specs._top_padding + specs._bottom_padding)) * units.mm
+    
+    text_format = None
+    if "text" in config:
+        text_format = config["text"].get("format", {})
+    
+    if "qr" in config and config["qr"]:
+        qr_format = confg["qr"] if isinstance(config["qr"], dict) else {}
+        if "barWidth" not in qr_format:
+            qr_format["barWidth"] = qr_format.get("barHeight", height)
+        if "barHeight" not in qr_format:
+            qr_format["barHeight"] = qr_format["barWidth"]
+    
     label_list = []
     for row in reader:
-        text = None if text_columns is None else tuple(row[i] for i in text_columns)
-        qr_data = None if qr_column is None else row[qr_column]
+        text = None if text_columns is None else tuple(col.get(row) for col in text_columns)
+        qr_data = None if qr_column is None else qr_column.get(row)
         label_list.append(Label(text, text_format, qr_data, qr_format))
-    make_labels(label_list, outfile, specs, qr_pos, **kwargs)
+    
+    make_labels(label_list, outfile, specs)
 
-def make_labels(label_list, outfile, specs=None, qr_pos="left", **kwargs):
+def make_labels(label_list, outfile, specs=None):
     """Make labels for a given set of Label objects."""
     
     # create the sheet
-    if specs is None:
-        specs = label.Specification(**kwargs)
-    
     # The draw function just calls Label.draw
     def draw_label(label, width, height, obj):
-        obj.draw(label, width, height, qr_pos)
-    
-    sheet = labels.Sheet(specs, draw_label, border=False)
+        obj.draw(label, width, height)
+    sheet = labels.Sheet(specs, draw_label, border=True)
     
     # add labels
     sheet.add_labels(label_list)
@@ -86,7 +99,7 @@ def make_labels(label_list, outfile, specs=None, qr_pos="left", **kwargs):
     # Save the file and we are done.
     sheet.save(outfile)
 
-def make_qr(data, error="L", version=None, compress=None):
+def make_qr(data, error="L", version=None, compress=None, **kwargs):
     """Encode data and generate a QR code. By default, the smallest possible code is
     created, and gzip compression is used if the data is smaller when compressed."""
     
@@ -99,39 +112,71 @@ def make_qr(data, error="L", version=None, compress=None):
     # create QR code
     # this may raise an error if the specified version is too
     # low to accomodate the data/error combination
-    return qr.QrCode(data, qrLevel=error, qrVersion=version)
+    return qr.QrCodeWidget(data, barLevel=error, qrVersion=version, **kwargs)
+
+def get_config(config_file, specs_file):
+    with open(specs_file, "rU") as i:
+        specs = json.load(i)
+    with open(config_file, "rU") as i:
+        config = json.load(i)
+    
+    spec_config = config["spec"]
+    page_type, spec_args = specs["label"][spec_config["name"]]
+    spec_args["sheet_width"], spec_args["sheet_height"] = specs["page"][page_type]
+    for side in ('top','bottom','left','right'):
+        key = "{0}_padding".format(side)
+        if key in spec_config:
+            spec_args[key] = spec_config[key]
+    spec_args = dict((k, Decimal(v)) for k,v in spec_args.items())
+    spec = labels.Specification(**spec_args)
+    config["spec"] = spec
+    
+    text = False
+    if "text" in config:
+        text = config["text"]
+        if "lines" not in text:
+            text["lines"] = 1
+    config["text"] = text
+    
+    return config
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--text-columns", default=None)
-    parser.add_argument("--text-format", nargs="+", default=[])
-    parser.add_argument("--qr-column", type=int, default=None)
-    parser.add_argument("--qr-format", nargs="+", default=[])
-    parser.add_argument("--noqr", action="store_true", default=False)
-    parser.add_argument("--specs", default="OL875")
-    parser.add_argument("--qr-pos", choices=("left", "right"), default="left")
-    parser.add_argument("infile")
-    parser.add_argument("outfile")
+    parser.add_argument("--config", default="config.json",
+        help="Path to config file")
+    parser.add_argument("--specs", default="specs.json",
+        help="Path to label specs file")
+    parser.add_argument("--text-columns", default=None,
+        help="Column indices of input file to use for text on labels. Defaults to the "\
+             "first N columns, where N is the number of lines specified in the config file. "\
+             "Multiple columns can be concatenated using the '+' sign.")
+    parser.add_argument("--qr-column", default=None,
+        help="Column index of input file to encode in the QR code. Defaults to the first "\
+             "text column, or the first column if no text columns are specified. "\
+             "Multiple columns can be concatenated using the '+' sign.")
+    parser.add_argument("-i", "--infile", required=True)
+    parser.add_argument("-o", "--outfile", required=True)
     args = parser.parse_args()
     
-    specs = SPECS[args.specs]
+    config = get_config(args.config, args.specs)
+    
+    text_columns = None
+    if config["text"] and config["text"]["lines"] > 0:
+        if args.text_columns is None:
+            text_columns = list(Column(i) for i in range(config["text"]["lines"]))
+        else:
+            text_columns = map(Column, args.text_columns.split(","))
+            assert len(text_columns) == config["text"]["lines"]
     
     qr_column = None
-    if not args.noqr:
-        qr_column = args.qr_column or 0
-    text_columns = None
-    if args.text_columns is not None:
-        text_columns = map(int, args.text_columns.split(","))
-    elif qr_column is None:
-        text_columns = (0,)
-        
-    text_format = dict((k,v) for x in args.text_format for k,v in x.split("="))
-    qr_format = dict((k,v) for x in args.qr_format for k,v in x.split("="))
+    if config["qr"]:
+        if args.qr_column is None:
+            qr_column = text_columns[0] if text_columns is not None else 0
+        else:
+            qr_column = Column(args.qr_column)
     
     with open(args.infile, "rU") as i:
-        make_labels_from_table(csv.reader(i), text_columns, qr_column, 
-            args.outfile, text_format=text_format, qr_format=qr_format,
-            specs=specs, qr_pos=args.qr_pos)
+        make_labels_from_table(csv.reader(i), text_columns, qr_column, args.outfile, config)
     
 if __name__ == "__main__":
     main()

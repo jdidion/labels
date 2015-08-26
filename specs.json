@@ -1,0 +1,20 @@
+{
+    "page" : {
+        "letter"            : [ 215.9, 279.4 ]
+    },
+    "label" : {
+        "OL875" : [ "letter", {
+            "columns"       : 3,
+            "rows"          : 10,
+            "label_width"   : 65.87,
+            "label_height"  : 25.4,
+            "top_margin"    : 12.7,
+            "bottom_margin" : 12.7,
+            "left_margin"   : 5.58,
+            "right_margin"  : 5.58,
+            "column_gap"    : 3.56, 
+            "row_gap"       : 0,
+            "corner_radius" : 3.18
+        } ]
+    }
+}

@@ -1,0 +1,18 @@
+{
+    "spec" : {
+        "name" : "OL875",
+        "top_padding"   : 1,
+        "bottom_padding": 1, 
+        "left_padding"  : 1, 
+        "right_padding" : 1
+    },
+    "text" : {
+        "lines"         : 2,
+        "format"        : {
+            "fontName"      : "Helvetica",
+            "fontSize"      : [ 32, 18, 18 ],
+            "textAnchor"    : "start"
+        }
+    },
+    "qr" : true
+}
