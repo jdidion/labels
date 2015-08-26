@@ -1,5 +1,5 @@
-    #!/usr/bin/env python
-# Create labels of different sizes that include text and a QR code.
+#!/usr/bin/env python
+# Given a csv file, create labels of different sizes that include text and a QR code.
 # Depends on pylabels.
 
 import argparse
@@ -58,8 +58,14 @@ class Label(object):
         for o in objs:
             label.add(o)
 
-def make_labels_from_table(reader, columns, outfile, specs=None, qr_pos="left", **kwargs):
-    pass
+def make_labels_from_table(reader, text_columns, qr_column, outfile, text_format=None, 
+        qr_format=None, specs=None, qr_pos="left", **kwargs):
+    label_list = []
+    for row in reader:
+        text = None if text_columns is None else tuple(row[i] for i in text_columns)
+        qr_data = None if qr_column is None else row[qr_column]
+        label_list.append(Label(text, text_format, qr_data, qr_format))
+    make_labels(label_list, outfile, specs, qr_pos, **kwargs)
 
 def make_labels(label_list, outfile, specs=None, qr_pos="left", **kwargs):
     """Make labels for a given set of Label objects."""
@@ -97,16 +103,35 @@ def make_qr(data, error="L", version=None, compress=None):
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--text-columns", default=None)
+    parser.add_argument("--text-format", nargs="+", default=[])
+    parser.add_argument("--qr-column", type=int, default=None)
+    parser.add_argument("--qr-format", nargs="+", default=[])
+    parser.add_argument("--noqr", action="store_true", default=False)
     parser.add_argument("--specs", default="OL875")
     parser.add_argument("--qr-pos", choices=("left", "right"), default="left")
     parser.add_argument("infile")
     parser.add_argument("outfile")
     args = parser.parse_args()
     
-    specs = SPECS[args.specs
+    specs = SPECS[args.specs]
+    
+    qr_column = None
+    if not args.noqr:
+        qr_column = args.qr_column or 0
+    text_columns = None
+    if args.text_columns is not None:
+        text_columns = map(int, args.text_columns.split(","))
+    elif qr_column is None:
+        text_columns = (0,)
+        
+    text_format = dict((k,v) for x in args.text_format for k,v in x.split("="))
+    qr_format = dict((k,v) for x in args.qr_format for k,v in x.split("="))
     
     with open(args.infile, "rU") as i:
-        make_labels_from_table(csv.reader(i), args.columns, args.outfile, specs=specs, qr_pos=args.qr_pos)
+        make_labels_from_table(csv.reader(i), text_columns, qr_column, 
+            args.outfile, text_format=text_format, qr_format=qr_format,
+            specs=specs, qr_pos=args.qr_pos)
     
 if __name__ == "__main__":
     main()
