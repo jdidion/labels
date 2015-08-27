@@ -10,7 +10,7 @@
         "lines"         : 2,
         "format"        : {
             "fontName"      : "Helvetica",
-            "fontSize"      : [ 32, 18, 18 ],
+            "fontSize"      : [ 12, 9, 9 ],
             "textAnchor"    : "start"
         }
     },

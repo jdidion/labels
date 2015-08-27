@@ -44,7 +44,7 @@ class DefaultLabel(object):
         self.icons = []
         if icons is not None:
             for i in icons:
-                self.add_icon[i]
+                self.add_icon(i)
     
     def add_text(self, text, fmt):
         self.text_lines.append((text, fmt))
@@ -53,7 +53,7 @@ class DefaultLabel(object):
         self.qr_data = qr_data
         self.qr_format = qr_format
     
-    def add_icons(self, icon):
+    def add_icon(self, icon):
         assert os.path.exists(icon)
         self.icons.append(icon)
     
@@ -72,11 +72,12 @@ class DefaultLabel(object):
             text_y -= (font_size + 1)
             label.add(shapes.String(text_x, text_y, text, **fmt))
         
-        icon_x = width - (10 * len(self.icons))
-        icon_y = 10 # TODO: make this configurable
+        icon_size = 16
+        icon_x = width - ((icon_size + 1) * len(self.icons))
+        icon_y = 1 # TODO: make this configurable
         for i, icon in enumerate(self.icons):
-            label.add(shapes.Image(icon_x, icon_y, 10, 10, icon))
-            icon_x += 10
+            label.add(shapes.Image(icon_x, icon_y, icon_size, icon_size, icon))
+            icon_x += icon_size + 1
 
 def make_labels_from_table(reader, text_columns, qr_column, icon_column, outfile, config):
     specs = config["spec"]
@@ -88,7 +89,7 @@ def make_labels_from_table(reader, text_columns, qr_column, icon_column, outfile
     
     if "qr" in config:
         compress = config["qr"]["compress"]
-        qr_format = confg["qr"].get("format", {})
+        qr_format = config["qr"].get("format", {})
         if "barWidth" not in qr_format:
             qr_format["barWidth"] = qr_format.get("barHeight", height)
         if "barHeight" not in qr_format:
@@ -159,11 +160,11 @@ def get_config(config_file, specs_file):
             text["lines"] = 1
     config["text"] = text
     
-    qr = Falsae
+    qr = False
     if "qr" in config:
         qr = config["qr"]
         if "compress" not in qr:
-            qr["compress"] = Falsae
+            qr["compress"] = False
     config["qr"] = qr
     
     config["icons"] = specs.get("icon", {})
