@@ -9,6 +9,7 @@ import csv
 from decimal import Decimal
 import json
 import math
+import os
 import zlib as z
 
 import labels
@@ -23,8 +24,10 @@ class Column(object):
     def get(self, row, delim=", "):
         return delim.join(list(row[i] for i in self.idxs))
 
-class Label(object):
-    def __init__(self, text_lines=None, text_format=None, qr_data=None, qr_format=None):
+class DefaultLabel(object):
+    """Label that places QR code (if any) at the left, lines of text (if any) on the right, and
+    icons in the lower right corner."""
+    def __init__(self, text_lines=None, text_format=None, qr_data=None, qr_format=None, icons=None):
         self.text_lines = []
         if text_lines is not None:
             for i in xrange(len(text_lines)):
@@ -38,6 +41,10 @@ class Label(object):
                 self.add_text(text_lines[i], fmt)
         
         self.set_qr(qr_data, qr_format)
+        self.icons = []
+        if icons is not None:
+            for i in icons:
+                self.add_icon[i]
     
     def add_text(self, text, fmt):
         self.text_lines.append((text, fmt))
@@ -45,6 +52,10 @@ class Label(object):
     def set_qr(self, qr_data, qr_format):
         self.qr_data = qr_data
         self.qr_format = qr_format
+    
+    def add_icons(self, icon):
+        assert os.path.exists(icon)
+        self.icons.append(icon)
     
     def draw(self, label, width, height):
         text_x = 0
@@ -60,8 +71,14 @@ class Label(object):
             font_size = fmt.get("fontSize", shapes.STATE_DEFAULTS["fontSize"])
             text_y -= (font_size + 1)
             label.add(shapes.String(text_x, text_y, text, **fmt))
+        
+        icon_x = width - (10 * len(self.icons))
+        icon_y = 10 # TODO: make this configurable
+        for i, icon in enumerate(self.icons):
+            label.add(shapes.Image(icon_x, icon_y, 10, 10, icon))
+            icon_x += 10
 
-def make_labels_from_table(reader, text_columns, qr_column, outfile, config):
+def make_labels_from_table(reader, text_columns, qr_column, icon_column, outfile, config):
     specs = config["spec"]
     height = float(specs._label_height - (specs._top_padding + specs._bottom_padding)) * units.mm
     
@@ -69,8 +86,9 @@ def make_labels_from_table(reader, text_columns, qr_column, outfile, config):
     if "text" in config:
         text_format = config["text"].get("format", {})
     
-    if "qr" in config and config["qr"]:
-        qr_format = confg["qr"] if isinstance(config["qr"], dict) else {}
+    if "qr" in config:
+        compress = config["qr"]["compress"]
+        qr_format = confg["qr"].get("format", {})
         if "barWidth" not in qr_format:
             qr_format["barWidth"] = qr_format.get("barHeight", height)
         if "barHeight" not in qr_format:
@@ -80,7 +98,10 @@ def make_labels_from_table(reader, text_columns, qr_column, outfile, config):
     for row in reader:
         text = None if text_columns is None else tuple(col.get(row) for col in text_columns)
         qr_data = None if qr_column is None else qr_column.get(row)
-        label_list.append(Label(text, text_format, qr_data, qr_format))
+        icons = []
+        if icon_column is not None and "icons" in config:
+            icons = tuple(config["icons"][i] for i in icon_column.get(row))
+        label_list.append(DefaultLabel(text, text_format, qr_data, qr_format, icons))
     
     make_labels(label_list, outfile, specs)
 
@@ -138,6 +159,15 @@ def get_config(config_file, specs_file):
             text["lines"] = 1
     config["text"] = text
     
+    qr = Falsae
+    if "qr" in config:
+        qr = config["qr"]
+        if "compress" not in qr:
+            qr["compress"] = Falsae
+    config["qr"] = qr
+    
+    config["icons"] = specs.get("icon", {})
+    
     return config
 
 def main():
@@ -154,6 +184,9 @@ def main():
         help="Column index of input file to encode in the QR code. Defaults to the first "\
              "text column, or the first column if no text columns are specified. "\
              "Multiple columns can be concatenated using the '+' sign.")
+    parser.add_argument("--icon-column", default=None,
+        help="Column index of input file listing icons to display on label. Icons must be "\
+             "specified as a string of one-character icon identifiers.")
     parser.add_argument("-i", "--infile", required=True)
     parser.add_argument("-o", "--outfile", required=True)
     args = parser.parse_args()
@@ -175,8 +208,10 @@ def main():
         else:
             qr_column = Column(args.qr_column)
     
+    icon_column = Column(args.icon_column) if args.icon_column is not None else None
+    
     with open(args.infile, "rU") as i:
-        make_labels_from_table(csv.reader(i), text_columns, qr_column, args.outfile, config)
+        make_labels_from_table(csv.reader(i), text_columns, qr_column, icon_column, args.outfile, config)
     
 if __name__ == "__main__":
     main()

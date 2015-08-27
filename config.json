@@ -14,5 +14,7 @@
             "textAnchor"    : "start"
         }
     },
-    "qr" : true
+    "qr" : {
+        "compress"  : false
+    }
 }

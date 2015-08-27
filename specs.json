@@ -16,5 +16,8 @@
             "row_gap"       : 0,
             "corner_radius" : 3.18
         } ]
+    },
+    "icon" : {
+        
     }
 }
