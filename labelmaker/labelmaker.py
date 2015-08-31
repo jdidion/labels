@@ -10,6 +10,7 @@ from reportlab.graphics.barcode import qr
 class DefaultLabel(object):
     """Label that places QR code (if any) at the left, lines of text (if any) on the right, and
     icons (if any) in the lower right corner."""
+    # More lab safety-related icons at https://pixabay.com/en/photos/danger%20sign/
     def __init__(self, text_lines=None, text_format=None, qr_data=None, qr_format=None, icons=None):
         self.text_lines = []
         if text_lines is not None:
