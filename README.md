@@ -68,6 +68,7 @@ From this above input file, we may want to create a label laid out as follows:
 | |    |                     |
 | ------      Fav. food Icons|
 ------------------------------
+</pre>
 
 Using the default page and label configurations provided in the example files, we could create this label with the following command:
 
