@@ -9,9 +9,15 @@ pip install reportlab
 pip install pylabels
 ```
 
+Note: pylabels 1.2.0 and earlier can throw exceptions due to rounding errors. This has been fixed in the source (https://github.com/bcbnz/pylabels), so until the next version of pylabels is released, you need to install it from GitHub:
+
+```
+pip install git+git://github.com/bcbnz/pylabels.git
+```
+
 ## Installation
 
-```python
+```
 pip install git+git://github.com/jdidion/labels.git
 ```
 
@@ -73,6 +79,6 @@ From this above input file, we may want to create a label laid out as follows:
 
 Using the default page and label configurations provided in the example files, we could create this label with the following command:
 
-```python
-python make-labels.py --text-columns 0+1,2 --qr-column 3 --icon-column 4
+```
+make-labels.py -l examples/label-config.json -t 0+1,2 -q 3 -h -f examples/example.csv -o labels.pdf
 ```
