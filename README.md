@@ -73,6 +73,6 @@ From this above input file, we may want to create a label laid out as follows:
 
 Using the default page and label configurations provided in the example files, we could create this label with the following command:
 
-```python
-python make-labels.py --text-columns 0+1,2 --qr-column 3 --icon-column 4
+```
+make-labels.py -l examples/label-config.json -t 0+1,2 -q 3 -h -f examples/example.csv -o labels.pdf
 ```
