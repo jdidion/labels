@@ -14,7 +14,7 @@ class Column(object):
     return the contents of the column(s) concatenated into a single string."""
     
     def __init__(self, col):
-        self.idxs = map(int, col.split("+"))
+        self.idxs = map(int, str(col).split("+"))
     
     def get(self, row, delim=", "):
         return delim.join(list(row[i] for i in self.idxs))
