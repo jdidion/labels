@@ -5,6 +5,7 @@ import argparse
 import csv
 from decimal import Decimal
 import json
+import pkgutil
 
 from labelmaker.labelmaker import *
 
@@ -64,29 +65,24 @@ def make_labels_from_table(reader, text_columns, qr_column, icon_column, outfile
     # Generate the PDF for the labels
     make_labels(specs, label_list, outfile)
 
-def get_config(label_config_file, page_config_file):
+def prepare_config(label_config, page_config):
     """Prepare configuration information from two JSON config files: labels and specs.
     
     Keyword arguments:
-    label_config_file -- JSON file with configuration information 
-                         for a specific set of labels.
-    page_config_file  -- JSON file with configuration information 
-                         with layouts of standard label types.
+    label_config -- JSON file with configuration information 
+                    for a specific set of labels.
+    page_config  -- JSON file with configuration information 
+                    with layouts of standard label types.
     """
-    with open(page_config_file, "rU") as i:
-        specs = json.load(i)
-    with open(label_config_file, "rU") as i:
-        config = json.load(i)
-    
     # TODO: exceptions will be raised if any expected keys are missing;
     # do explicit validation and raise custom exceptions
     
     # The 'spec' config entry tells us which spec to use
-    spec_config = config["spec"]
+    spec_config = label_config["spec"]
     # Select the requested spec from the spec config
-    page_type, spec_args = specs["label"][spec_config["name"]]
+    page_type, spec_args = page_config["label"][spec_config["name"]]
     # Resolve the page type into width and height
-    spec_args["sheet_width"], spec_args["sheet_height"] = specs["page"][page_type]
+    spec_args["sheet_width"], spec_args["sheet_height"] = page_config["page"][page_type]
     # Padding may be specified in the config; if so, transfer to the spec
     for side in ('top','bottom','left','right'):
         key = "{0}_padding".format(side)
@@ -96,33 +92,31 @@ def get_config(label_config_file, page_config_file):
     # rounding errors
     spec_args = dict((k, Decimal(v)) for k,v in spec_args.items())
     spec = labels.Specification(**spec_args)
-    config["spec"] = spec
+    label_config["spec"] = spec
     
     text = False
-    if "text" in config:
-        text = config["text"]
+    if "text" in label_config:
+        text = label_config["text"]
         if "lines" not in text:
             # Use one line of text by default
             text["lines"] = 1
-    config["text"] = text
+    label_config["text"] = text
     
     qr = False
-    if "qr" in config:
-        qr = config["qr"]
+    if "qr" in label_config:
+        qr = label_config["qr"]
         if "compress" not in qr:
             # Do not compress QR code data by default
             qr["compress"] = False
-    config["qr"] = qr
+    label_config["qr"] = qr
     
-    config["icons"] = specs.get("icon", {})
-    
-    return config
+    return label_config
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--label-config", default="config.json",
         help="Path to label config file.")
-    parser.add_argument("--page-config", default="config/specs.json",
+    parser.add_argument("--page-config", default=None,
         help="Path to page config file.")
     parser.add_argument("--text-columns", default=None,
         help="Comma-delimited list of column indices of input file to use for text on labels. "
@@ -142,7 +136,16 @@ def main():
     parser.add_argument("-o", "--outfile", required=True)
     args = parser.parse_args()
     
-    config = get_config(args.label_config, args.page_config)
+    with open(args.label_config, "rU") as i:
+        label_config = json.load(i)
+    
+    if args.page_config is None:
+        page_config = json.loads(pkgutil.get_data("labellmaker", "config/page-config.json"))
+    else:
+        with open(args.page_config, "rU") as i:
+            page_config = json.load(i)
+    
+    config = prepare_config(label_config, page_config)
     
     text_columns = None
     if config["text"] and config["text"]["lines"] > 0:

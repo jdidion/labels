@@ -29,21 +29,21 @@ Defines how things should be laid out on each label. Importantly, this does not 
 
 The label config files are in JSON format. An example can be found in examples/config.json.
 
-The label config file has three sections: spec, text, and qr. The first is required, and at a minimum gives the name of the page spec (corresponding to a page spec defined in the page config file). 
+The label config file has four sections: spec, text, qr, and icons. The first is required, and at a minimum gives the name of the page spec (corresponding to a page spec defined in the page config file). 
 
 The text section defines the number of text lines, and properties of each line (such as font name, font size, and justification). 
 
 If the qr section is present, a QR code will be included on the label. You can also provide formatting parameters for the QR code.
 
+The icons section maps one-character codes to image file paths. These are icons that can be displayed on labels.
+
 ### Page config file
 
 Describes the layout of a page of labels. This config file is also in JSON format, and an example can be found in config/specs.json. 
 
-There are three sections: page, label, and icon. A page config is an array of two numbers - the width and height of the page. Examples of page types are A4 and Letter. 
+There are two sections: page and label. A page config is an array of two numbers - the width and height of the page. Examples of page types are A4 and Letter. 
 
 The label section defines parameters for each label layout. Each label type is an array, with the first item being the page type (corresponding to a page type defined in the page section), and the second item is a dictionary. Various parameters can be defined, such as the numbers of label columns and rows, the height and width of each label, the types of corners, the spacing in between labels, and the page margins. All measurements must be in mm.
-
-The icon section maps one-character codes to image file paths. These are icons that can be displayed on labels.
 
 ### CSV file
 
