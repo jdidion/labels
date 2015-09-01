@@ -114,25 +114,27 @@ def prepare_config(label_config, page_config):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--label-config", default="config.json",
+    parser.add_argument("-l", "--label-config", default="config.json",
         help="Path to label config file.")
-    parser.add_argument("--page-config", default=None,
+    parser.add_argument("-p", "--page-config", default=None,
         help="Path to page config file.")
-    parser.add_argument("--text-columns", default=None,
+    parser.add_argument("-t", "--text-columns", default=None,
         help="Comma-delimited list of column indices of input file to use for text on labels. "
              "Defaults to the first N columns, where N is the number of lines specified in the "
              "config file. Multiple columns can be concatenated using the '+' sign.")
-    parser.add_argument("--qr-column", default=None,
+    parser.add_argument("-q", "--qr-column", default=None,
         help="Column index of input file to encode in the QR code. Defaults to the first "\
              "text column, or the first column if no text columns are specified. "\
              "Multiple columns can be concatenated using the '+' sign.")
-    parser.add_argument("--icon-column", default=None,
+    parser.add_argument("-i", "--icon-column", default=None,
         help="Column index of input file listing icons to display on label. Icons must be "\
              "specified as a string of one-character icon identifiers that match those defined "
              "in the specs file.")
     parser.add_argument("--header", action="store_true", default=False,
         help="The input file has a header line.")
-    parser.add_argument("-i", "--infile", required=True)
+    parser.add_argument("--delimiter", default=",",
+        help="Input file delimiter.")
+    parser.add_argument("-f", "--infile", required=True)
     parser.add_argument("-o", "--outfile", required=True)
     args = parser.parse_args()
     
@@ -140,7 +142,7 @@ def main():
         label_config = json.load(i)
     
     if args.page_config is None:
-        page_config = json.loads(pkgutil.get_data("labellmaker", "config/page-config.json"))
+        page_config = json.loads(pkgutil.get_data("labelmaker", "config/page-config.json"))
     else:
         with open(args.page_config, "rU") as i:
             page_config = json.load(i)
@@ -165,7 +167,7 @@ def main():
     icon_column = Column(args.icon_column) if args.icon_column is not None else None
     
     with open(args.infile, "rU") as i:
-        reader = csv.reader(i)
+        reader = csv.reader(i, delimiter=args.delimiter, skipinitialspace=True)
         if args.header:
             # TODO: capture the header and use it to enable
             # the user to specify columns by name rather than

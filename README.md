@@ -55,6 +55,7 @@ Example input file:
 Name, Sex, Birthday, URL,             Icons
 John, M,   May 24,   http://john.com, C
 Jane, F,   Jan 7,    http://fred.org, CP
+Jim,  M,   Oct 4,    http://jim.net,  P
 </pre>
 
 ## Usage

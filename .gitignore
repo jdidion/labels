@@ -1,0 +1,3 @@
+build/*
+dist/*
+labelmaker.egg-info/*

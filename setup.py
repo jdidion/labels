@@ -47,6 +47,8 @@ setup(
     
     scripts=find_scripts('bin/'),
     
+    data_files=[('config', ['config/page-config.json'])],
+    
     install_requires=[
         'pylabels',
         'reportlab'
