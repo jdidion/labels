@@ -9,9 +9,15 @@ pip install reportlab
 pip install pylabels
 ```
 
+Note: pylabels 1.2.0 and earlier can throw exceptions due to rounding errors. This has been fixed in the source (https://github.com/bcbnz/pylabels), so until the next version of pylabels is released, you need to install it from GitHub:
+
+```
+pip install git+git://github.com/bcbnz/pylabels.git
+```
+
 ## Installation
 
-```python
+```
 pip install git+git://github.com/jdidion/labels.git
 ```
 
