@@ -130,7 +130,7 @@ def main():
         help="Column index of input file listing icons to display on label. Icons must be "\
              "specified as a string of one-character icon identifiers that match those defined "
              "in the specs file.")
-    parser.add_argument("--header", action="store_true", default=False,
+    parser.add_argument("-h", "--header", action="store_true", default=False,
         help="The input file has a header line.")
     parser.add_argument("--delimiter", default=",",
         help="Input file delimiter.")

@@ -43,11 +43,11 @@ setup(
         'Programming Language :: Python :: 3.4',
     ],
 
-    packages=find_packages(exclude=['scripts']),
+    packages=['labelmaker'],
     
     scripts=find_scripts('bin/'),
     
-    data_files=[('config', ['config/page-config.json'])],
+    package_data={'labelmaker' : ['config/page-config.json']},
     
     install_requires=[
         'pylabels',
