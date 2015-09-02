@@ -22,7 +22,8 @@ class Column(object):
     def get(self, row, delim=", "):
         return delim.join(list(row[i] for i in self.idxs))
 
-def make_labels_from_table(reader, text_columns, qr_column, icon_column, outfile, config, label_class=DefaultLabel):
+def make_labels_from_table(reader, text_columns, qr_column, icon_column, outfile, config, 
+        skip=0, label_class=DefaultLabel):
     """Create one label for each row in a table.
 
     Keyword arguments:
@@ -32,6 +33,9 @@ def make_labels_from_table(reader, text_columns, qr_column, icon_column, outfile
     icon_column -- Column object for the icons to be shown on the label.
     outfile     -- PDF file to write.
     config      -- dict with configuration information; the result of calling `get_config`
+    skip        -- number of labels to skip over (enables partial use of sheet)
+    label_class -- Object type to create for each label; must have same constructor
+                   signature as DefaultLabel
     """
     
     # Compute the number of points available for drawing/printing.
@@ -52,7 +56,8 @@ def make_labels_from_table(reader, text_columns, qr_column, icon_column, outfile
         if "barHeight" not in qr_format:
             qr_format["barHeight"] = qr_format["barWidth"]
     
-    label_list = []
+    # 
+    label_list = [None] * skip
     for row in reader:
         # Get the lines of text
         text = None if text_columns is None else tuple(col.get(row) for col in text_columns)

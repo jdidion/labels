@@ -69,7 +69,8 @@ def make_labels(specs, label_list, outfile):
     # create the sheet
     # The draw function just calls Label.draw
     def draw_label(label, width, height, obj):
-        obj.draw(label, width, height)
+        if obj is not None:
+            obj.draw(label, width, height)
     sheet = labels.Sheet(specs, draw_label, border=True)
     
     # add labels
