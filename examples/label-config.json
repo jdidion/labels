@@ -3,18 +3,27 @@
         "name" : "OL875",
         "top_padding"   : 1,
         "bottom_padding": 1, 
-        "left_padding"  : 1, 
+        "left_padding"  : 0, 
         "right_padding" : 1
     },
     "text" : {
         "lines"         : 2,
+        "shrink"        : [ "scale", "wrap" ],
         "format"        : {
-            "fontName"      : "Helvetica",
-            "fontSize"      : [ 12, 9, 9 ],
-            "textAnchor"    : "start"
+            "fontName"      : [ "Helvetica-Bold", "Helvetica" ],
+            "fontSize"      : [ 12, 9 ],
+            "alignment"     : "left"
         }
     },
     "qr" : {
         "compress"  : false
-    }
+    },
+    "index" : {
+        "default"        : "{_index_}/{_count_}",
+        "format"         : {
+            "fontName"      : "Helvetica",
+            "fontSize"      : 9
+        }
+    },
+    "dateFormat" : "%Y-%m-%d"
 }

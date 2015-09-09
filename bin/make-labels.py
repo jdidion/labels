@@ -8,33 +8,23 @@ import json
 import pkgutil
 
 from labelmaker.labelmaker import *
+from labelmaker.util import *
+#from reportlab.lib import enums
 
-class Column(object):
-    """Represents one or more columns in a table. The `get` function will always
-    return the contents of the column(s) concatenated into a single string."""
-    
-    def __init__(self, col):
-        if isinstance(col, str):
-            self.idxs = map(int, col.split("+"))
-        else:
-            self.idxs = (col,)
-    
-    def get(self, row, delim=", "):
-        return delim.join(list(row[i] for i in self.idxs))
-
-def make_labels_from_table(reader, text_columns, qr_column, icon_column, outfile, config, 
-        skip=0, label_class=DefaultLabel):
+def make_labels_from_table(reader, text_strings, qr_string, icon_column, count_column, index_string,
+        outfile, config, skip=0, label_class=DefaultLabel):
     """Create one label for each row in a table.
 
     Keyword arguments:
-    reader      -- csv reader that returns a tuple for each row of a table.
-    text_column -- tuple of Column objects for the lines of text on the labels.
-    qr_column   -- Column object for the data to be encoded in the QR code.
-    icon_column -- Column object for the icons to be shown on the label.
-    outfile     -- PDF file to write.
-    config      -- dict with configuration information; the result of calling `get_config`
-    skip        -- number of labels to skip over (enables partial use of sheet)
-    label_class -- Object type to create for each label; must have same constructor
+    reader       -- csv reader that returns a tuple for each row of a table.
+    text_string  -- tuple of strings for the lines of text on the labels.
+    qr_string    -- string to be encoded in the QR code.
+    icon_column  -- name of column with icons to be shown on the label.
+    count_column -- name of column with count of containers
+    index_string -- string showing the label index
+    outfile      -- PDF file to write.
+    config       -- dict with configuration information; the result of calling `get_config`
+    label_class  -- Object type to create for each label; must have same constructor
                    signature as DefaultLabel
     """
     
@@ -43,8 +33,30 @@ def make_labels_from_table(reader, text_columns, qr_column, icon_column, outfile
     height = float(specs._label_height - (specs._top_padding + specs._bottom_padding)) * units.mm
     
     text_format = None
+    text_shrink = "wrap"
     if "text" in config:
         text_format = config["text"].get("format", {})
+        text_shrink = config["text"].get("shrink", "wrap")
+
+        if "alignment" in text_format:
+            # shapes version
+            aln_map = dict(
+                left="start",
+                center="middle",
+                right="end",
+                justify="start" # no justify option
+            )
+            text_format["textAnchor"] = safe_map(lambda a: aln_map[a], text_format["alignment"])
+                        
+            # Platypus version
+            # have to map alignment strings to enums
+            #aln_map = dict(
+            #    left=enums.TA_LEFT,
+            #    center=enums.TA_CENTER,
+            #    right=enums.TA_RIGHT,
+            #    justify=enums.TA_JUSTIFY
+            #)
+            #text_format["alignment"] = safe_map(lambda a: aln_map[a], text_format["alignment"])
     
     if "qr" in config:
         compress = config["qr"]["compress"]
@@ -56,22 +68,37 @@ def make_labels_from_table(reader, text_columns, qr_column, icon_column, outfile
         if "barHeight" not in qr_format:
             qr_format["barHeight"] = qr_format["barWidth"]
     
-    # 
-    label_list = [None] * skip
+    if "index" in config and count_column is not None:
+        if index_string is None:
+            index_string = config["index"].get("default", "{_index_} / {_count_}")
+        index_format = config["index"].get("format", {})
+    else:
+        index_string = None
+    
+    label_list = []
     for row in reader:
-        # Get the lines of text
-        text = None if text_columns is None else tuple(col.get(row) for col in text_columns)
-        # Get the data to encode in the QR code
-        qr_data = None if qr_column is None else qr_column.get(row)
-        # Translate the icon codes into paths to image files
-        icons = []
-        if icon_column is not None and "icons" in config:
-            icons = tuple(config["icons"][i] for i in icon_column.get(row))
-        # Create the label
-        label_list.append(label_class(text, text_format, qr_data, qr_format, icons))
+        def make_label(idx):
+            # Add the index varaible to the row
+            row["_index_"] = i + 1
+            # Get the lines of text
+            text = None if text_strings is None else tuple(col.format(**row) for col in text_strings)
+            # Get the data to encode in the QR code
+            qr_data = None if qr_string is None else qr_string.format(**row)
+            # Translate the icon codes into paths to image files
+            icons = []
+            if icon_column is not None and "icons" in config:
+                icons = tuple(config["icons"][i] for i in row[icon_column])
+            index = None if index_string is None else index_string.format(**row)
+            # Create the label
+            return label_class(text, text_format, text_shrink, qr_data, qr_format, icons, index)
+        
+        count = int(row[count_column]) if count_column is not None and count_column in row else 1
+        row["_count_"] = count
+        for i in xrange(count):
+            label_list.append(make_label(i+1))
     
     # Generate the PDF for the labels
-    make_labels(specs, label_list, outfile)
+    make_labels(specs, label_list, outfile, skip)
 
 def prepare_config(label_config, page_config):
     """Prepare configuration information from two JSON config files: labels and specs.
@@ -126,26 +153,41 @@ def main():
         help="Path to label config file.")
     parser.add_argument("-p", "--page-config", default=None,
         help="Path to page config file.")
-    parser.add_argument("-t", "--text-columns", default=None,
-        help="Comma-delimited list of column indices of input file to use for text on labels. "
-             "Defaults to the first N columns, where N is the number of lines specified in the "
-             "config file. Multiple columns can be concatenated using the '+' sign.")
-    parser.add_argument("-q", "--qr-column", default=None,
-        help="Column index of input file to encode in the QR code. Defaults to the first "\
-             "text column, or the first column if no text columns are specified. "\
-             "Multiple columns can be concatenated using the '+' sign.")
+    parser.add_argument("-t", "--text-strings", nargs="*", default=None,
+        help="Text strings. A string is any text, with column  values substituted for "\
+             "{<column name>}. Defaults to the first N columns, where N is the number "\
+             "of lines specified in the config file.")
+    parser.add_argument("-q", "--qr-string", default=None,
+        help="String to encode in the QR code. Defaults to the first text column, or the first "\
+             "column if no text columns are specified. Multiple columns can be concatenated using "\
+             "the '+' sign.")
     parser.add_argument("-i", "--icon-column", default=None,
-        help="Column index of input file listing icons to display on label. Icons must be "\
+        help="Name of column in input file listing icons to display on label. Icons must be "\
              "specified as a string of one-character icon identifiers that match those defined "
-             "in the specs file.")
-    parser.add_argument("-H", "--header", action="store_true", default=False,
-        help="The input file has a header line.")
+             "in the config file.")
+    parser.add_argument("-c", "--count-column", default=None,
+        help="Name of column specifying containers with the same label; that many copies of "\
+             "the label will be printed, and the index will be available as the {_index_} variable.")
+    parser.add_argument("-n", "--index-string", default=None,
+         help="String specifying the label index to print in the upper right of the label. "\
+              "Defaults to {_index_} / {_count_}.")             
+    parser.add_argument("-H", "--no-header", action="store_true", default=False,
+        help="The input file has no header line; all variables will be named {col<index>} "\
+             "where <index> is the (one-based) column index.")
     parser.add_argument("--delimiter", default=",",
         help="Input file delimiter.")
-    parser.add_argument("-f", "--infile", required=True)
+    parser.add_argument("--sheet", default=1,
+        help="Worksheet name or index, if --workbook is specified.")
+    parser.add_argument("--skip", type=int, default=0,
+        help="Number of labels to skip (e.g. because they've already been used)")
+    input_group = parser.add_mutually_exclusive_group(required=True)
+    input_group.add_argument("-f", "--infile",
+        help="Text input file (CSV unless --delimiter is specified).")
+    input_group.add_argument("-x", "--workbook",
+        help="Excel input file (first sheet is loaded unless --sheet is specified).")
     parser.add_argument("-o", "--outfile", required=True)
     args = parser.parse_args()
-    
+
     with open(args.label_config, "rU") as i:
         label_config = json.load(i)
     
@@ -157,31 +199,32 @@ def main():
     
     config = prepare_config(label_config, page_config)
     
-    text_columns = None
+    text_strings = None
     if config["text"] and config["text"]["lines"] > 0:
-        if args.text_columns is None:
-            text_columns = list(Column(i) for i in range(config["text"]["lines"]))
+        if args.text_strings is None:
+            text_strings = list("{{col{0}}}".format(i+1) for i in xrange(config["text"]["lines"]))
         else:
-            text_columns = map(Column, args.text_columns.split(","))
-            assert len(text_columns) == config["text"]["lines"]
+            text_strings = args.text_strings
+            assert len(text_strings) == config["text"]["lines"]
     
-    qr_column = None
+    qr_string = None
     if config["qr"]:
-        if args.qr_column is None:
-            qr_column = text_columns[0] if text_columns is not None else 0
-        else:
-            qr_column = Column(args.qr_column)
+        qr_string = args.qr_string or text_strings[0] if text_strings is not None else "{col1}"
     
-    icon_column = Column(args.icon_column) if args.icon_column is not None else None
+    header = not args.no_header
+    if args.infile:    
+        reader = AliasedDictReader(args.infile, header,
+            delimiter=args.delimiter, skipinitialspace=True)
+    else:
+        date_format = config.get("dateFormat", "%Y-%m-%d")
+        reader = ExcelReader(args.workbook, args.sheet, header, date_format)
     
-    with open(args.infile, "rU") as i:
-        reader = csv.reader(i, delimiter=args.delimiter, skipinitialspace=True)
-        if args.header:
-            # TODO: capture the header and use it to enable
-            # the user to specify columns by name rather than
-            # index
-            reader.next()
-        make_labels_from_table(reader, text_columns, qr_column, icon_column, args.outfile, config)
+    try:
+        make_labels_from_table(reader, text_strings, qr_string, args.icon_column, 
+            args.count_column, args.index_string, args.outfile, config)
     
+    finally:
+        reader.close()
+
 if __name__ == "__main__":
     main()
