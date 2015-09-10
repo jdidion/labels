@@ -90,7 +90,7 @@ def make_labels_from_table(reader, text_strings, qr_string, icon_column, count_c
                 icons = tuple(config["icons"][i] for i in row[icon_column])
             index = None if index_string is None else index_string.format(**row)
             # Create the label
-            return label_class(text, text_format, text_shrink, qr_data, qr_format, icons, index)
+            return label_class(text, text_format, text_shrink, qr_data, qr_format, icons, index, index_format)
         
         count = int(row[count_column]) if count_column is not None and count_column in row else 1
         row["_count_"] = count
@@ -98,7 +98,8 @@ def make_labels_from_table(reader, text_strings, qr_string, icon_column, count_c
             label_list.append(make_label(i+1))
     
     # Generate the PDF for the labels
-    make_labels(specs, label_list, outfile, skip)
+    make_labels(specs, label_list, outfile, skip, 
+        config.get("borders", True), config.get("fontPath", None))
 
 def prepare_config(label_config, page_config):
     """Prepare configuration information from two JSON config files: labels and specs.
@@ -145,6 +146,11 @@ def prepare_config(label_config, page_config):
             qr["compress"] = False
     label_config["qr"] = qr
     
+    if "fontPath" in label_config:
+        label_config["fontPath"] = map(
+            lambda path: os.path.abspath(os.path.expanduser(path)),
+            label_config["fontPath"])
+
     return label_config
 
 def main():

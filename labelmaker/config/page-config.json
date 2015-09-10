@@ -15,6 +15,19 @@
             "column_gap"    : 3.56, 
             "row_gap"       : 0,
             "corner_radius" : 3.18
-        } ]
+        } ],
+        "CL23T" : [ "letter", {
+            "columns"       : 6,
+            "rows"          : 21,
+            "label_width"   : 32.5,
+            "label_height"  : 12.7,
+            "top_margin"    : 6.35,
+            "bottom_margin" : 6.35,
+            "left_margin"   : 6.35,
+            "right_margin"  : 6.35,
+            "column_gap"    : 1.64, 
+            "row_gap"       : 0,
+            "corner_radius" : 2
+        }]
     }
 }

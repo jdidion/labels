@@ -8,7 +8,8 @@ import labels
 from reportlab.lib import units, styles
 from reportlab.graphics import shapes
 from reportlab.graphics.barcode import qr
-from reportlab.pdfbase.pdfmetrics import stringWidth
+from reportlab.pdfbase.pdfmetrics import stringWidth, registerFont, getTypeFace
+from reportlab.pdfbase.ttfonts import TTFont
 #from reportlab.platypus import Frame, Paragraph
 
 class DefaultLabel(object):
@@ -51,7 +52,7 @@ class DefaultLabel(object):
         self.index_format = index_format or {}
         self.index_format["textAnchor"] = "end"
     
-    def draw(self, label, width, height):
+    def draw(self, label, width, height, font_paths=None):
         text_x = 0
         max_width = width
         max_height = height
@@ -65,8 +66,7 @@ class DefaultLabel(object):
             max_width -= text_x
         
         if self.index is not None:
-            font_name = self.index_format.get("fontName", shapes.STATE_DEFAULTS["fontName"])
-            font_size = self.index_format.get("fontSize", shapes.STATE_DEFAULTS["fontSize"])
+            font_name, font_size = get_font(self.index_format, font_paths)
             index_width = stringWidth(self.index, font_name, font_size)
             max_width -= (index_width + 1)
             index_x = width
@@ -84,8 +84,7 @@ class DefaultLabel(object):
         # Implementation using shapes.String
         text_y = height
         for text, fmt, shrink in self.text_lines:
-            font_name = fmt.get("fontName", shapes.STATE_DEFAULTS["fontName"])
-            font_size = fmt.get("fontSize", shapes.STATE_DEFAULTS["fontSize"])
+            font_name, font_size = get_font(fmt, font_paths)
             
             if shrink == "wrap":
                 text = wrap_text(text, max_width, font_name, font_size)
@@ -121,6 +120,33 @@ class DefaultLabel(object):
         #    text_frame.add(Paragraph(text, style), label)
         #label.add(text_frame)
 
+def get_font(d, font_paths, font_key="fontName", size_key="fontSize"):
+    if font_key in d:
+        font_name = d[font_key]
+        resolved = False
+        try:
+            getTypeFace(font_name)
+            resolved = True
+            
+        except:
+            if font_paths is not None:
+                for path in font_paths:
+                    try:
+                        registerFont(TTFont(font_name, os.path.join(path, "{0}.ttf".format(font_name))))
+                        resolved = True
+                        break
+                    except:
+                        pass
+        
+        if not resolved:
+            raise Exception("Could not locate font {0}".format(font_name))
+    
+    else:
+        font_name = shapes.STATE_DEFAULTS["fontName"]
+    
+    font_size = d.get(size_key, shapes.STATE_DEFAULTS["fontSize"])
+    return (font_name, font_size)
+
 def wrap_text(text, max_width, font_name="Helvetica", font_size=50):
     text_width = stringWidth(text, font_name, font_size)
     nchar = len(text)
@@ -139,15 +165,15 @@ def scale_font_size(text, max_width, font_name="Helvetica", font_size=50, scalin
         text_width = stringWidth(text, font_name, font_size)
     return font_size
 
-def make_labels(specs, label_list, outfile, skip=0):
+def make_labels(specs, label_list, outfile, skip=0, draw_border=True, font_paths=None):
     """Make labels for a given set of Label objects."""
     
     # create the sheet
     # The draw function just calls Label.draw
     def draw_label(label, width, height, obj):
         if obj is not None:
-            obj.draw(label, width, height)
-    sheet = labels.Sheet(specs, draw_label, border=True)
+            obj.draw(label, width, height, font_paths)
+    sheet = labels.Sheet(specs, draw_label, border=draw_border)
     
     if skip > 0:
         cols = specs.columns

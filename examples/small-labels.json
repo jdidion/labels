@@ -1,0 +1,31 @@
+{
+    "spec" : {
+        "name" : "CL23T",
+        "top_padding"   : 0.5,
+        "bottom_padding": 0.5, 
+        "left_padding"  : 0, 
+        "right_padding" : 0.5
+    },
+    "text" : {
+        "lines"         : 3,
+        "shrink"        : [ "scale", "scale", "wrap" ],
+        "format"        : {
+            "fontName"      : [ "Tahoma Bold", "Tahoma", "Tahoma" ],
+            "fontSize"      : [ 8, 5, 4 ],
+            "alignment"     : "left"
+        }
+    },
+    "qr" : {
+        "compress"  : false
+    },
+    "index" : {
+        "default"        : "{_index_}/{_count_}",
+        "format"         : {
+            "fontName"      : "Tahoma",
+            "fontSize"      : 5
+        }
+    },
+    "borders"    : false,
+    "fontPath"   : [ "/Library/Fonts", "~/Library/Fonts" ],
+    "dateFormat" : "%Y-%m-%d"
+}
